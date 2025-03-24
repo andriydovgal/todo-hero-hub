@@ -39,6 +39,7 @@ export const AuthForm = () => {
   const [isVerifyingToken, setIsVerifyingToken] = useState(false);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const [invitationEmail, setInvitationEmail] = useState<string | null>(null);
+  const [invitationError, setInvitationError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -68,24 +69,39 @@ export const AuthForm = () => {
       // Verify the token and get the associated email
       const verifyToken = async () => {
         setIsVerifyingToken(true);
+        setInvitationError(null);
         try {
           console.log('Verifying token:', token);
-          const invitation = await verifyInvitationToken(token);
+          const result = await verifyInvitationToken(token);
           
-          if (invitation) {
-            console.log('Token verified successfully:', invitation);
-            setInvitationToken(token);
-            setInvitationEmail(invitation.email);
-            setMode('set-password');
-            loginForm.setValue('email', invitation.email);
-            toast.info('Please set your password to complete registration');
+          if (result) {
+            if (result.error === 'already_used') {
+              console.log('Invitation has already been used');
+              setInvitationError('This invitation has already been used');
+              toast.error('This invitation has already been used');
+              setInvitationToken(null);
+            } else if (result.error === 'expired') {
+              console.log('Invitation has expired');
+              setInvitationError('This invitation has expired');
+              toast.error('This invitation has expired');
+              setInvitationToken(null);
+            } else {
+              console.log('Token verified successfully:', result);
+              setInvitationToken(token);
+              setInvitationEmail(result.email);
+              setMode('set-password');
+              loginForm.setValue('email', result.email);
+              toast.info('Please set your password to complete registration');
+            }
           } else {
             console.error('Invalid or expired invitation token');
+            setInvitationError('Invalid or expired invitation');
             toast.error('Invalid or expired invitation');
             setInvitationToken(null);
           }
         } catch (error) {
           console.error('Error verifying invitation token:', error);
+          setInvitationError('Error verifying invitation');
           toast.error('Error verifying invitation');
         } finally {
           setIsVerifyingToken(false);
@@ -170,6 +186,15 @@ export const AuthForm = () => {
                 <InfoIcon className="h-4 w-4" />
                 <AlertDescription>
                   Verifying invitation, please wait...
+                </AlertDescription>
+              </Alert>
+            )}
+          
+            {invitationError && (
+              <Alert className="mb-4 bg-red-50 border-red-200 text-red-800">
+                <InfoIcon className="h-4 w-4 text-red-600" />
+                <AlertDescription>
+                  {invitationError}
                 </AlertDescription>
               </Alert>
             )}

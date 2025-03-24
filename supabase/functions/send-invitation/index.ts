@@ -36,6 +36,15 @@ serve(async (req) => {
     console.log(`Processing invitation request for ${email} with role ${role}`);
     console.log(`Invitation link: ${invitationLink}`);
     
+    // Parse the URL to extract the token for debugging
+    try {
+      const url = new URL(invitationLink);
+      const token = url.searchParams.get('token');
+      console.log(`Invitation token from URL: ${token}`);
+    } catch (err) {
+      console.error("Error parsing invitation URL:", err);
+    }
+    
     if (!email || !invitationLink) {
       console.error("Missing required fields:", { email, linkProvided: !!invitationLink });
       return new Response(

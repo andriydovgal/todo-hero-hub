@@ -170,26 +170,70 @@ export const verifyInvitationToken = async (token: string) => {
   try {
     console.log(`Verifying invitation token: ${token}`);
     
+    // First, let's check if there's any invitation with this token
+    const { data: allInvitations, error: allError } = await supabase
+      .from('invitations')
+      .select('*')
+      .eq('token', token);
+      
+    if (allError) {
+      console.error('Error querying all invitations with token:', allError);
+      return null;
+    }
+    
+    console.log(`Found ${allInvitations.length} invitations with this token:`, allInvitations);
+    
+    // Check if any invitation exists with this token
+    if (allInvitations.length === 0) {
+      console.log('No invitations found with this token');
+      return null;
+    }
+    
+    // Now check for valid invitations
     const { data, error } = await supabase
       .from('invitations')
       .select('*')
       .eq('token', token)
       .eq('used', false)
-      .gt('expires_at', new Date().toISOString())
-      .single();
+      .gt('expires_at', new Date().toISOString());
       
     if (error) {
       console.error('Error verifying invitation token:', error);
       return null;
     }
     
-    if (!data) {
-      console.log('No valid invitation found for token');
+    console.log('Valid invitations that are not used and not expired:', data);
+    
+    if (!data || data.length === 0) {
+      // Let's check why the invitation is invalid
+      const { data: usedData } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('token', token)
+        .eq('used', true);
+        
+      if (usedData && usedData.length > 0) {
+        console.log('Invitation found but it has already been used:', usedData);
+        return { error: 'already_used' };
+      }
+      
+      const { data: expiredData } = await supabase
+        .from('invitations')
+        .select('*')
+        .eq('token', token)
+        .lte('expires_at', new Date().toISOString());
+        
+      if (expiredData && expiredData.length > 0) {
+        console.log('Invitation found but it has expired:', expiredData);
+        return { error: 'expired' };
+      }
+      
+      console.log('No valid invitation found for token for unknown reason');
       return null;
     }
     
-    console.log('Valid invitation found:', data);
-    return data as Invitation;
+    console.log('Valid invitation found:', data[0]);
+    return data[0] as Invitation;
   } catch (error) {
     console.error('Exception in verifyInvitationToken:', error);
     return null;
