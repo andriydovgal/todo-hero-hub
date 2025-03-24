@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from 'sonner';
-import { createInvitation } from '@/lib/supabase';
+import { createInvitation, sendInvitationEmail } from '@/lib/supabase';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InfoIcon, Copy, CheckIcon } from 'lucide-react';
 
@@ -24,6 +24,7 @@ const InvitationForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [invitationLink, setInvitationLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   const {
     register,
@@ -47,7 +48,18 @@ const InvitationForm = () => {
     
     try {
       const result = await createInvitation(data.email, data.role);
-      toast.success(`Invitation sent to ${data.email}`);
+      
+      // Send invitation email
+      setIsSendingEmail(true);
+      try {
+        await sendInvitationEmail(data.email, result.invitationLink, data.role);
+        toast.success(`Invitation sent to ${data.email}`);
+      } catch (emailError: any) {
+        toast.error(`Invitation created but email failed to send: ${emailError.message}`);
+      } finally {
+        setIsSendingEmail(false);
+      }
+      
       setInvitationLink(result.invitationLink);
       reset();
     } catch (error: any) {
@@ -83,7 +95,7 @@ const InvitationForm = () => {
           <Alert className="mb-4 bg-green-50">
             <InfoIcon className="h-4 w-4 text-green-600" />
             <AlertDescription className="flex flex-col gap-2">
-              <div className="text-sm text-green-800">Invitation created successfully!</div>
+              <div className="text-sm text-green-800">Invitation created and email sent successfully!</div>
               <div className="flex items-center gap-2">
                 <Input 
                   value={invitationLink} 
@@ -143,8 +155,12 @@ const InvitationForm = () => {
             )}
           </div>
           
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Sending...' : 'Send invitation'}
+          <Button type="submit" className="w-full" disabled={isLoading || isSendingEmail}>
+            {isLoading || isSendingEmail ? (
+              isSendingEmail ? 'Sending email...' : 'Creating invitation...'
+            ) : (
+              'Send invitation'
+            )}
           </Button>
         </form>
       </CardContent>

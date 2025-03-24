@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -182,6 +181,25 @@ export const verifyInvitationToken = async (token: string) => {
   }
   
   return data as Invitation;
+};
+
+// Sends an invitation email using the Edge Function
+export const sendInvitationEmail = async (email: string, invitationLink: string, role: 'admin' | 'user') => {
+  try {
+    const { data, error } = await supabase.functions.invoke('send-invitation', {
+      body: { email, invitationLink, role },
+    });
+    
+    if (error) {
+      console.error('Error invoking send-invitation function:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error sending invitation email:', error);
+    throw error;
+  }
 };
 
 // Helper function to generate random token
