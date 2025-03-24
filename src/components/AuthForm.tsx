@@ -15,14 +15,23 @@ import { AnimatedContainer } from './ui-components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InfoIcon } from 'lucide-react';
 
-type FormMode = 'login' | 'register';
+type FormMode = 'login' | 'register' | 'set-password';
 
-const formSchema = z.object({
+const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+const passwordSchema = z.object({
+  password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
+  confirmPassword: z.string().min(6, { message: 'Password must be at least 6 characters' }),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 export const AuthForm = () => {
   const [mode, setMode] = useState<FormMode>('login');
@@ -32,17 +41,19 @@ export const AuthForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    setValue,
-  } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const loginForm = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
+    },
+  });
+
+  const passwordForm = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      password: '',
+      confirmPassword: '',
     },
   });
   
@@ -52,17 +63,16 @@ export const AuthForm = () => {
     const token = searchParams.get('token');
     
     if (token) {
-      setMode('register');
-      setInvitationToken(token);
-      
       // Verify the token and get the associated email
       const verifyToken = async () => {
         const invitation = await verifyInvitationToken(token);
         
         if (invitation) {
+          setInvitationToken(token);
           setInvitationEmail(invitation.email);
-          setValue('email', invitation.email);
-          toast.info('Please complete your registration');
+          setMode('set-password');
+          loginForm.setValue('email', invitation.email);
+          toast.info('Please set your password to complete registration');
         } else {
           toast.error('Invalid or expired invitation');
           setInvitationToken(null);
@@ -71,9 +81,9 @@ export const AuthForm = () => {
       
       verifyToken();
     }
-  }, [location.search, setValue]);
+  }, [location.search, loginForm]);
   
-  const onSubmit = async (data: FormValues) => {
+  const handleLoginSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
       if (mode === 'login') {
@@ -82,7 +92,7 @@ export const AuthForm = () => {
         
         toast.success('Logged in successfully');
         navigate('/dashboard');
-      } else {
+      } else if (mode === 'register') {
         // Check if we have an invitation token
         if (invitationToken) {
           const { error } = await signUp(data.email, data.password, invitationToken);
@@ -90,11 +100,32 @@ export const AuthForm = () => {
           
           toast.success('Account created successfully. Please sign in.');
           setMode('login');
-          reset();
+          loginForm.reset();
         } else {
           toast.error('Registration is only available via invitation');
         }
       }
+    } catch (error: any) {
+      toast.error(error.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (data: PasswordFormValues) => {
+    setIsLoading(true);
+    try {
+      if (!invitationEmail || !invitationToken) {
+        throw new Error('Invitation information is missing');
+      }
+
+      const { error } = await signUp(invitationEmail, data.password, invitationToken);
+      if (error) throw error;
+      
+      toast.success('Account created successfully. Please sign in.');
+      setMode('login');
+      loginForm.setValue('email', invitationEmail);
+      passwordForm.reset();
     } catch (error: any) {
       toast.error(error.message || 'An error occurred');
     } finally {
@@ -108,12 +139,16 @@ export const AuthForm = () => {
         <Card className="border-none bg-transparent shadow-none">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-medium">
-              {mode === 'login' ? 'Welcome back' : 'Create an account'}
+              {mode === 'login' ? 'Welcome back' : 
+               mode === 'register' ? 'Create an account' : 
+               'Set your password'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
               {mode === 'login'
                 ? 'Enter your credentials to sign in'
-                : 'Complete your registration'}
+                : mode === 'register'
+                ? 'Complete your registration'
+                : 'Create a secure password for your account'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -126,45 +161,93 @@ export const AuthForm = () => {
               </Alert>
             )}
             
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@example.com"
-                  className="bg-white/50"
-                  {...register('email')}
-                  disabled={mode === 'register' && !!invitationEmail}
-                />
-                {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email.message}</p>
+            {mode === 'set-password' ? (
+              <form onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)} className="space-y-4">
+                {invitationEmail && (
+                  <div className="space-y-2">
+                    <Label htmlFor="email-display">Email</Label>
+                    <Input
+                      id="email-display"
+                      type="email"
+                      value={invitationEmail}
+                      className="bg-white/50"
+                      disabled
+                    />
+                  </div>
                 )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  className="bg-white/50"
-                  {...register('password')}
-                />
-                {errors.password && (
-                  <p className="text-sm text-red-500">{errors.password.message}</p>
-                )}
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading || (mode === 'register' && !invitationToken)}
-              >
-                {isLoading 
-                  ? 'Loading...' 
-                  : mode === 'login' 
-                    ? 'Sign In' 
-                    : 'Sign Up'}
-              </Button>
-            </form>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    className="bg-white/50"
+                    {...passwordForm.register('password')}
+                  />
+                  {passwordForm.formState.errors.password && (
+                    <p className="text-sm text-red-500">{passwordForm.formState.errors.password.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    className="bg-white/50"
+                    {...passwordForm.register('confirmPassword')}
+                  />
+                  {passwordForm.formState.errors.confirmPassword && (
+                    <p className="text-sm text-red-500">{passwordForm.formState.errors.confirmPassword.message}</p>
+                  )}
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Loading...' : 'Create Account'}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={loginForm.handleSubmit(handleLoginSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    className="bg-white/50"
+                    {...loginForm.register('email')}
+                    disabled={mode === 'register' && !!invitationEmail}
+                  />
+                  {loginForm.formState.errors.email && (
+                    <p className="text-sm text-red-500">{loginForm.formState.errors.email.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    className="bg-white/50"
+                    {...loginForm.register('password')}
+                  />
+                  {loginForm.formState.errors.password && (
+                    <p className="text-sm text-red-500">{loginForm.formState.errors.password.message}</p>
+                  )}
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading || (mode === 'register' && !invitationToken)}
+                >
+                  {isLoading 
+                    ? 'Loading...' 
+                    : mode === 'login' 
+                      ? 'Sign In' 
+                      : 'Sign Up'}
+                </Button>
+              </form>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col">
             {mode === 'login' && (
@@ -172,7 +255,7 @@ export const AuthForm = () => {
                 Don't have an account? Please ask for an invitation.
               </p>
             )}
-            {mode === 'register' && invitationToken && (
+            {(mode === 'register' || mode === 'set-password') && invitationToken && (
               <Button
                 variant="link"
                 className="pl-1.5 pr-0 h-auto"
@@ -180,7 +263,8 @@ export const AuthForm = () => {
                   setMode('login');
                   setInvitationToken(null);
                   setInvitationEmail(null);
-                  reset();
+                  loginForm.reset();
+                  passwordForm.reset();
                 }}
               >
                 Back to login
