@@ -9,13 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { GlassSection } from './ui-components';
-import { signIn, signUp, verifyInvitationToken } from '@/lib/supabase';
+import { signIn, signUp, verifyInvitationToken, Invitation } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { AnimatedContainer } from './ui-components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InfoIcon } from 'lucide-react';
 
 type FormMode = 'login' | 'register' | 'set-password';
+type InvitationResult = Invitation | { error: string };
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -72,32 +73,35 @@ export const AuthForm = () => {
         setInvitationError(null);
         try {
           console.log('Verifying token:', token);
-          const result = await verifyInvitationToken(token);
+          const result = await verifyInvitationToken(token) as InvitationResult;
           
-          if (result) {
-            if (result.error === 'already_used') {
-              console.log('Invitation has already been used');
-              setInvitationError('This invitation has already been used');
-              toast.error('This invitation has already been used');
-              setInvitationToken(null);
-            } else if (result.error === 'expired') {
-              console.log('Invitation has expired');
-              setInvitationError('This invitation has expired');
-              toast.error('This invitation has expired');
-              setInvitationToken(null);
-            } else {
-              console.log('Token verified successfully:', result);
-              setInvitationToken(token);
-              setInvitationEmail(result.email);
-              setMode('set-password');
-              loginForm.setValue('email', result.email);
-              toast.info('Please set your password to complete registration');
+          if ('error' in result) {
+            console.log('Invitation verification error:', result.error);
+            switch (result.error) {
+              case 'already_used':
+                setInvitationError('This invitation has already been used');
+                toast.error('This invitation has already been used');
+                break;
+              case 'expired':
+                setInvitationError('This invitation has expired');
+                toast.error('This invitation has expired');
+                break;
+              case 'not_found':
+                setInvitationError('Invalid invitation token');
+                toast.error('Invalid invitation token');
+                break;
+              default:
+                setInvitationError('Invalid or expired invitation');
+                toast.error('Invalid or expired invitation');
             }
-          } else {
-            console.error('Invalid or expired invitation token');
-            setInvitationError('Invalid or expired invitation');
-            toast.error('Invalid or expired invitation');
             setInvitationToken(null);
+          } else {
+            console.log('Token verified successfully:', result);
+            setInvitationToken(token);
+            setInvitationEmail(result.email);
+            setMode('set-password');
+            loginForm.setValue('email', result.email);
+            toast.info('Please set your password to complete registration');
           }
         } catch (error) {
           console.error('Error verifying invitation token:', error);
