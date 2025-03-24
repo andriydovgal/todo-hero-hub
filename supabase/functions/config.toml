@@ -1,2 +1,4 @@
 
 project_id = "zbljejuuujfjgpcxainn"
+[global.env]
+RESEND_API_KEY = "{{RESEND_API_KEY}}"

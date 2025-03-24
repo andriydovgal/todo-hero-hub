@@ -23,13 +23,20 @@ serve(async (req) => {
   try {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
+      console.error("RESEND_API_KEY is not set");
       throw new Error("RESEND_API_KEY is not set");
     }
 
+    console.log("Initializing Resend with API key");
     const resend = new Resend(resendApiKey);
-    const { email, invitationLink, role } = await req.json() as InvitationEmailRequest;
+    
+    const reqBody = await req.json();
+    const { email, invitationLink, role } = reqBody as InvitationEmailRequest;
+    
+    console.log(`Processing invitation request for ${email} with role ${role}`);
     
     if (!email || !invitationLink) {
+      console.error("Missing required fields:", { email, linkProvided: !!invitationLink });
       return new Response(
         JSON.stringify({ error: "Email and invitation link are required" }),
         {

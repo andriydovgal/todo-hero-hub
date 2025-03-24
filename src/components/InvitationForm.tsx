@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,9 +51,12 @@ const InvitationForm = () => {
       // Send invitation email
       setIsSendingEmail(true);
       try {
-        await sendInvitationEmail(data.email, result.invitationLink, data.role);
+        console.log(`Sending invitation email to ${data.email} with link ${result.invitationLink}`);
+        const emailResult = await sendInvitationEmail(data.email, result.invitationLink, data.role);
+        console.log("Email sending response:", emailResult);
         toast.success(`Invitation sent to ${data.email}`);
       } catch (emailError: any) {
+        console.error("Error sending invitation email:", emailError);
         toast.error(`Invitation created but email failed to send: ${emailError.message}`);
       } finally {
         setIsSendingEmail(false);
@@ -63,6 +65,7 @@ const InvitationForm = () => {
       setInvitationLink(result.invitationLink);
       reset();
     } catch (error: any) {
+      console.error("Error creating invitation:", error);
       if (error.code === '23505') {
         toast.error('This email has already been invited');
       } else {
