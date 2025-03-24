@@ -34,6 +34,7 @@ serve(async (req) => {
     const { email, invitationLink, role } = reqBody as InvitationEmailRequest;
     
     console.log(`Processing invitation request for ${email} with role ${role}`);
+    console.log(`Invitation link: ${invitationLink}`);
     
     if (!email || !invitationLink) {
       console.error("Missing required fields:", { email, linkProvided: !!invitationLink });

@@ -167,20 +167,33 @@ export const deleteInvitation = async (id: string) => {
 };
 
 export const verifyInvitationToken = async (token: string) => {
-  const { data, error } = await supabase
-    .from('invitations')
-    .select('*')
-    .eq('token', token)
-    .eq('used', false)
-    .gt('expires_at', new Date().toISOString())
-    .single();
+  try {
+    console.log(`Verifying invitation token: ${token}`);
     
-  if (error || !data) {
-    console.error('Error verifying invitation token:', error);
+    const { data, error } = await supabase
+      .from('invitations')
+      .select('*')
+      .eq('token', token)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+      
+    if (error) {
+      console.error('Error verifying invitation token:', error);
+      return null;
+    }
+    
+    if (!data) {
+      console.log('No valid invitation found for token');
+      return null;
+    }
+    
+    console.log('Valid invitation found:', data);
+    return data as Invitation;
+  } catch (error) {
+    console.error('Exception in verifyInvitationToken:', error);
     return null;
   }
-  
-  return data as Invitation;
 };
 
 // Sends an invitation email using the Edge Function

@@ -36,6 +36,7 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 export const AuthForm = () => {
   const [mode, setMode] = useState<FormMode>('login');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifyingToken, setIsVerifyingToken] = useState(false);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const [invitationEmail, setInvitationEmail] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -63,19 +64,31 @@ export const AuthForm = () => {
     const token = searchParams.get('token');
     
     if (token) {
+      console.log('Found token in URL:', token);
       // Verify the token and get the associated email
       const verifyToken = async () => {
-        const invitation = await verifyInvitationToken(token);
-        
-        if (invitation) {
-          setInvitationToken(token);
-          setInvitationEmail(invitation.email);
-          setMode('set-password');
-          loginForm.setValue('email', invitation.email);
-          toast.info('Please set your password to complete registration');
-        } else {
-          toast.error('Invalid or expired invitation');
-          setInvitationToken(null);
+        setIsVerifyingToken(true);
+        try {
+          console.log('Verifying token:', token);
+          const invitation = await verifyInvitationToken(token);
+          
+          if (invitation) {
+            console.log('Token verified successfully:', invitation);
+            setInvitationToken(token);
+            setInvitationEmail(invitation.email);
+            setMode('set-password');
+            loginForm.setValue('email', invitation.email);
+            toast.info('Please set your password to complete registration');
+          } else {
+            console.error('Invalid or expired invitation token');
+            toast.error('Invalid or expired invitation');
+            setInvitationToken(null);
+          }
+        } catch (error) {
+          console.error('Error verifying invitation token:', error);
+          toast.error('Error verifying invitation');
+        } finally {
+          setIsVerifyingToken(false);
         }
       };
       
@@ -152,6 +165,15 @@ export const AuthForm = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {isVerifyingToken && (
+              <Alert className="mb-4">
+                <InfoIcon className="h-4 w-4" />
+                <AlertDescription>
+                  Verifying invitation, please wait...
+                </AlertDescription>
+              </Alert>
+            )}
+          
             {mode === 'register' && !invitationToken && (
               <Alert className="mb-4">
                 <InfoIcon className="h-4 w-4" />
