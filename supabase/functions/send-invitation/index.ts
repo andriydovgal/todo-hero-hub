@@ -40,9 +40,13 @@ serve(async (req) => {
     try {
       const url = new URL(invitationLink);
       const token = url.searchParams.get('token');
-      console.log(`Invitation token from URL: ${token}`);
+      console.log(`Invitation token from URL: "${token}"`);
       console.log(`Token length: ${token?.length}`);
-      console.log(`Token characters: ${token?.split('').join(' ')}`);
+      if (token) {
+        console.log(`First 5 chars: "${token.substring(0, 5)}"`);
+        console.log(`Last 5 chars: "${token.substring(token.length - 5)}"`);
+        console.log(`Token characters: ${token.split('').join(' ')}`);
+      }
     } catch (err) {
       console.error("Error parsing invitation URL:", err);
     }

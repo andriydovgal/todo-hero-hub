@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -89,6 +88,10 @@ export const AuthForm = () => {
               case 'not_found':
                 setInvitationError('Invalid invitation token');
                 toast.error('Invalid invitation token');
+                break;
+              case 'database_error':
+                setInvitationError('Error accessing invitation database');
+                toast.error('Error accessing invitation database');
                 break;
               default:
                 setInvitationError('Invalid or expired invitation');

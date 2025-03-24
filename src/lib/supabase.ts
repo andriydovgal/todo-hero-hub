@@ -168,47 +168,61 @@ export const deleteInvitation = async (id: string) => {
 
 export const verifyInvitationToken = async (token: string) => {
   try {
-    console.log(`Verifying invitation token: ${token}`);
+    console.log(`Verifying invitation token: "${token}"`);
+    console.log(`Token length: ${token.length}`);
+    
+    if (!token || token.trim() === '') {
+      console.error('Empty token provided');
+      return { error: 'not_found' };
+    }
     
     // First, let's check if there's any invitation with this token
-    const { data: allInvitations, error: allError } = await supabase
+    const { data: invitations, error } = await supabase
       .from('invitations')
       .select('*')
-      .eq('token', token);
+      .eq('token', token.trim());
       
-    if (allError) {
-      console.error('Error querying all invitations with token:', allError);
+    if (error) {
+      console.error('Error querying invitations with token:', error);
       return { error: 'database_error' };
     }
     
-    console.log(`Found ${allInvitations?.length || 0} invitations with this token:`, allInvitations);
+    console.log(`Found ${invitations?.length || 0} invitations with this token:`, invitations);
     
     // Check if any invitation exists with this token
-    if (!allInvitations || allInvitations.length === 0) {
+    if (!invitations || invitations.length === 0) {
       console.log('No invitations found with this token');
       return { error: 'not_found' };
     }
     
-    // Check if the invitation has been used
-    const usedInvitation = allInvitations.find(inv => inv.used === true);
-    if (usedInvitation) {
-      console.log('Invitation found but already used:', usedInvitation);
-      return { error: 'already_used' };
-    }
-    
-    // Check if the invitation has expired
-    const expiredInvitation = allInvitations.find(inv => new Date(inv.expires_at) < new Date());
-    if (expiredInvitation) {
-      console.log('Invitation found but expired:', expiredInvitation);
-      return { error: 'expired' };
-    }
-    
-    // Find the valid invitation (not used and not expired)
-    const validInvitation = allInvitations.find(
-      inv => inv.used === false && new Date(inv.expires_at) >= new Date()
-    );
+    // Find valid invitation
+    const validInvitation = invitations.find(inv => {
+      const isUsed = inv.used === true;
+      const isExpired = new Date(inv.expires_at) < new Date();
+      
+      console.log(`Invitation ID ${inv.id}:`);
+      console.log(`- Email: ${inv.email}`);
+      console.log(`- Used: ${isUsed}`);
+      console.log(`- Expires at: ${inv.expires_at}`);
+      console.log(`- Is expired: ${isExpired}`);
+      
+      return !isUsed && !isExpired;
+    });
     
     if (!validInvitation) {
+      // If no valid invitation, check why - was it used or expired?
+      const usedInvitation = invitations.find(inv => inv.used === true);
+      if (usedInvitation) {
+        console.log('Invitation found but already used:', usedInvitation);
+        return { error: 'already_used' };
+      }
+      
+      const expiredInvitation = invitations.find(inv => new Date(inv.expires_at) < new Date());
+      if (expiredInvitation) {
+        console.log('Invitation found but expired:', expiredInvitation);
+        return { error: 'expired' };
+      }
+      
       console.log('No valid invitation found for token');
       return { error: 'invalid' };
     }
