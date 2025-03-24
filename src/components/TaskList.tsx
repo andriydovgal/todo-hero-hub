@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { PlusIcon, Loader2, SearchIcon, CheckCircle2, CircleIcon, MoreHorizontal, X } from 'lucide-react';
-import { Task, getTasks, updateTask, deleteTask } from '@/lib/supabase';
+import { Task, TaskStatus, getTasks, updateTask, deleteTask } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -32,8 +31,15 @@ const TaskList: React.FC = () => {
     try {
       const { data, error } = await getTasks();
       if (error) throw error;
-      setTasks(data || []);
-      setFilteredTasks(data || []);
+      
+      // Ensure data is properly typed as Task[]
+      const typedData = data ? data.map(item => ({
+        ...item,
+        status: item.status as TaskStatus
+      })) : [];
+      
+      setTasks(typedData);
+      setFilteredTasks(typedData);
     } catch (error: any) {
       toast.error('Failed to fetch tasks: ' + error.message);
     } finally {
@@ -57,7 +63,7 @@ const TaskList: React.FC = () => {
     }
   }, [searchQuery, tasks]);
   
-  const handleStatusChange = async (taskId: string, newStatus: Task['status']) => {
+  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
     try {
       const { data, error } = await updateTask(taskId, { status: newStatus });
       if (error) throw error;

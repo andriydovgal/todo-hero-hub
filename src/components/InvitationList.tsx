@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { getInvitations, deleteInvitation, Invitation } from '@/lib/supabase';
 import { toast } from 'sonner';

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -22,14 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Task, createTask, updateTask } from '@/lib/supabase';
+import { Task, TaskStatus, createTask, updateTask } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const taskSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  status: z.enum(['pending', 'in_progress', 'completed']),
+  status: z.enum(['pending', 'in_progress', 'completed'] as const),
   due_date: z.date().optional().nullable(),
   priority: z.number().min(1).max(3),
   category: z.string().optional(),
@@ -55,7 +54,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
   const defaultValues: TaskFormValues = {
     title: task?.title || '',
     description: task?.description || '',
-    status: task?.status || 'pending',
+    status: (task?.status as TaskStatus) || 'pending',
     due_date: task?.due_date ? new Date(task.due_date) : null,
     priority: task?.priority || 1,
     category: task?.category || '',
@@ -90,7 +89,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         
         if (error) throw error;
         if (updatedTask && onTaskUpdated) {
-          onTaskUpdated(updatedTask);
+          onTaskUpdated(updatedTask as Task);
           toast.success('Task updated successfully');
         }
       } else {
@@ -105,7 +104,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         
         if (error) throw error;
         if (newTask && onTaskCreated) {
-          onTaskCreated(newTask);
+          onTaskCreated(newTask as Task);
           toast.success('Task created successfully');
         }
         
@@ -146,7 +145,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             <Label htmlFor="status">Status</Label>
             <Select 
               defaultValue={defaultValues.status} 
-              onValueChange={(value) => setValue('status', value as any)}
+              onValueChange={(value) => setValue('status', value as TaskStatus)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />

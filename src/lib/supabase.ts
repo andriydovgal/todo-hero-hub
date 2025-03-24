@@ -10,7 +10,7 @@ export type TaskStatus = 'pending' | 'in_progress' | 'completed';
 export type Task = {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   status: TaskStatus;
   due_date?: string | null;
   priority: number;
@@ -109,6 +109,10 @@ export const createInvitation = async (email: string, role: 'admin' | 'user' = '
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
   
+  // Get current user to set as creator
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  
   const { data, error } = await supabase
     .from('invitations')
     .insert([
@@ -116,6 +120,7 @@ export const createInvitation = async (email: string, role: 'admin' | 'user' = '
         email,
         token,
         role,
+        created_by: user.id,
         expires_at: expiresAt.toISOString(),
       }
     ])
