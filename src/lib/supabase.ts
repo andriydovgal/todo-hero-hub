@@ -1,5 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 // These types should match your Supabase schema
 export type TaskStatus = 'pending' | 'in_progress' | 'completed';
@@ -23,17 +26,28 @@ export type UserProfile = {
   created_at: string;
 };
 
-// Initialize the Supabase client
-const supabaseUrl = 'https://your-supabase-url.supabase.co';
-const supabaseKey = 'your-supabase-anon-key';
-
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export type Invitation = {
+  id: string;
+  email: string;
+  token: string;
+  role: 'admin' | 'user';
+  created_by: string;
+  created_at: string;
+  expires_at: string;
+  used: boolean;
+};
 
 // User authentication functions
-export const signUp = async (email: string, password: string) => {
+export const signUp = async (email: string, password: string, token?: string) => {
   return await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/login`,
+      data: {
+        invitation_token: token
+      }
+    }
   });
 };
 
@@ -50,6 +64,120 @@ export const signOut = async () => {
 
 export const getCurrentUser = async () => {
   return await supabase.auth.getUser();
+};
+
+export const getCurrentSession = async () => {
+  return await supabase.auth.getSession();
+};
+
+// Get current user profile with role information
+export const getUserProfile = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) return null;
+  
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+    
+  if (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
+  }
+  
+  return data as UserProfile;
+};
+
+export const getUserRole = async () => {
+  const profile = await getUserProfile();
+  return profile?.role;
+};
+
+// Check if user is admin
+export const isAdmin = async () => {
+  const role = await getUserRole();
+  return role === 'admin';
+};
+
+// Invitation management
+export const createInvitation = async (email: string, role: 'admin' | 'user' = 'user') => {
+  const token = generateToken();
+  
+  // Set expiration date to 7 days from now
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+  
+  const { data, error } = await supabase
+    .from('invitations')
+    .insert([
+      {
+        email,
+        token,
+        role,
+        expires_at: expiresAt.toISOString(),
+      }
+    ])
+    .select()
+    .single();
+    
+  if (error) {
+    console.error('Error creating invitation:', error);
+    throw error;
+  }
+  
+  return data as Invitation;
+};
+
+export const getInvitations = async () => {
+  const { data, error } = await supabase
+    .from('invitations')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (error) {
+    console.error('Error fetching invitations:', error);
+    return [];
+  }
+  
+  return data as Invitation[];
+};
+
+export const deleteInvitation = async (id: string) => {
+  const { error } = await supabase
+    .from('invitations')
+    .delete()
+    .eq('id', id);
+    
+  if (error) {
+    console.error('Error deleting invitation:', error);
+    throw error;
+  }
+  
+  return true;
+};
+
+export const verifyInvitationToken = async (token: string) => {
+  const { data, error } = await supabase
+    .from('invitations')
+    .select('*')
+    .eq('token', token)
+    .eq('used', false)
+    .gt('expires_at', new Date().toISOString())
+    .single();
+    
+  if (error || !data) {
+    return null;
+  }
+  
+  return data as Invitation;
+};
+
+// Helper function to generate random token
+const generateToken = () => {
+  return Math.random().toString(36).substring(2, 15) + 
+         Math.random().toString(36).substring(2, 15);
 };
 
 // Task CRUD operations
@@ -79,7 +207,7 @@ export const createTask = async (task: Omit<Task, 'id' | 'created_at' | 'user_id
       {
         ...task,
         user_id: user.id,
-      },
+      }
     ])
     .select()
     .single();
@@ -107,88 +235,3 @@ export const getUserProfiles = async () => {
     .from('user_profiles')
     .select('*');
 };
-
-export const getUserRole = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) return null;
-  
-  const { data } = await supabase
-    .from('user_profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-    
-  return data?.role;
-};
-
-// SQL for creating the tables and RLS policies:
-/*
--- Create user_profiles table
-CREATE TABLE user_profiles (
-  id UUID REFERENCES auth.users(id) PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create tasks table
-CREATE TABLE tasks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'in_progress', 'completed')) DEFAULT 'pending',
-  due_date TIMESTAMP WITH TIME ZONE,
-  priority INTEGER NOT NULL DEFAULT 1,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  user_id UUID REFERENCES auth.users(id) NOT NULL,
-  category TEXT
-);
-
--- Enable Row Level Security
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-
--- Create RLS policies
--- Users can only see and modify their own profile
-CREATE POLICY user_profiles_policy ON user_profiles 
-  USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
-
--- Admins can see all profiles
-CREATE POLICY admin_user_profiles_policy ON user_profiles 
-  USING (
-    (SELECT role FROM user_profiles WHERE id = auth.uid()) = 'admin'
-  );
-
--- Users can CRUD their own tasks
-CREATE POLICY user_tasks_policy ON tasks 
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-
--- Admins can see all tasks
-CREATE POLICY admin_tasks_policy ON tasks 
-  USING (
-    (SELECT role FROM user_profiles WHERE id = auth.uid()) = 'admin'
-  );
-
--- Admins can modify all tasks
-CREATE POLICY admin_tasks_modify_policy ON tasks 
-  WITH CHECK (
-    (SELECT role FROM user_profiles WHERE id = auth.uid()) = 'admin'
-  );
-
--- Create trigger to add a profile entry when a new user signs up
-CREATE OR REPLACE FUNCTION create_user_profile_on_signup()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO user_profiles (id, email, role)
-  VALUES (new.id, new.email, 'user');
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE create_user_profile_on_signup();
-*/
