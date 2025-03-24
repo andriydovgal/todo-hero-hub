@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { getInvitations, deleteInvitation, Invitation } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2 } from 'lucide-react';
+import { Trash2, Link as LinkIcon, Copy, CheckIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -19,10 +21,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 const InvitationList = () => {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [invitationToDelete, setInvitationToDelete] = useState<string | null>(null);
+  const [selectedInvitationLink, setSelectedInvitationLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   
   const fetchInvitations = async () => {
     setIsLoading(true);
@@ -52,6 +63,23 @@ const InvitationList = () => {
     }
   };
   
+  const generateInvitationLink = (token: string) => {
+    return `${window.location.origin}/login?token=${token}`;
+  };
+  
+  const showInvitationLink = (token: string) => {
+    setSelectedInvitationLink(generateInvitationLink(token));
+  };
+  
+  const copyToClipboard = () => {
+    if (selectedInvitationLink) {
+      navigator.clipboard.writeText(selectedInvitationLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Invitation link copied to clipboard');
+    }
+  };
+  
   const isExpired = (expiresAt: string) => {
     return new Date(expiresAt) < new Date();
   };
@@ -65,6 +93,38 @@ const InvitationList = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {selectedInvitationLink && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-100">
+            <div className="text-sm font-medium mb-2">Invitation Link:</div>
+            <div className="flex items-center gap-2">
+              <Input 
+                value={selectedInvitationLink} 
+                readOnly 
+                className="pr-10 text-xs bg-white"
+              />
+              <Button 
+                onClick={copyToClipboard} 
+                size="icon" 
+                variant="ghost" 
+                className="h-8 w-8"
+              >
+                {copied ? <CheckIcon className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Share this link with the invited user to complete registration.
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => setSelectedInvitationLink(null)}
+            >
+              Close
+            </Button>
+          </div>
+        )}
+        
         {isLoading ? (
           <div className="flex justify-center p-4">
             <p>Loading invitations...</p>
@@ -107,33 +167,53 @@ const InvitationList = () => {
                       {format(new Date(invitation.expires_at), 'MMM dd, yyyy')}
                     </TableCell>
                     <TableCell className="text-right">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => setInvitationToDelete(invitation.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete the invitation for {invitation.email}.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction 
-                              onClick={() => handleDeleteInvitation(invitation.id)}
+                      <div className="flex justify-end items-center gap-1">
+                        {!invitation.used && !isExpired(invitation.expires_at) && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => showInvitationLink(invitation.token)}
+                                >
+                                  <LinkIcon className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Get invitation link</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => setInvitationToDelete(invitation.id)}
                             >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete the invitation for {invitation.email}.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDeleteInvitation(invitation.id)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

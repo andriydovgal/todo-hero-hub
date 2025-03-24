@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from 'sonner';
 import { createInvitation } from '@/lib/supabase';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { InfoIcon, Copy, CheckIcon } from 'lucide-react';
 
 const invitationSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -20,6 +22,8 @@ type InvitationFormValues = z.infer<typeof invitationSchema>;
 
 const InvitationForm = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [invitationLink, setInvitationLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   
   const {
     register,
@@ -42,8 +46,9 @@ const InvitationForm = () => {
     setIsLoading(true);
     
     try {
-      await createInvitation(data.email, data.role);
+      const result = await createInvitation(data.email, data.role);
       toast.success(`Invitation sent to ${data.email}`);
+      setInvitationLink(result.invitationLink);
       reset();
     } catch (error: any) {
       if (error.code === '23505') {
@@ -56,6 +61,15 @@ const InvitationForm = () => {
     }
   };
   
+  const copyToClipboard = () => {
+    if (invitationLink) {
+      navigator.clipboard.writeText(invitationLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Invitation link copied to clipboard');
+    }
+  };
+  
   return (
     <Card>
       <CardHeader>
@@ -65,6 +79,34 @@ const InvitationForm = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {invitationLink && (
+          <Alert className="mb-4 bg-green-50">
+            <InfoIcon className="h-4 w-4 text-green-600" />
+            <AlertDescription className="flex flex-col gap-2">
+              <div className="text-sm text-green-800">Invitation created successfully!</div>
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={invitationLink} 
+                  readOnly 
+                  className="pr-10 text-xs bg-white"
+                />
+                <Button 
+                  onClick={copyToClipboard} 
+                  size="icon" 
+                  variant="ghost" 
+                  className="h-8 w-8"
+                  type="button"
+                >
+                  {copied ? <CheckIcon className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <div className="text-xs text-green-700 mt-1">
+                Share this link with the invited user to complete registration.
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email address</Label>

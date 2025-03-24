@@ -115,15 +115,13 @@ export const createInvitation = async (email: string, role: 'admin' | 'user' = '
   
   const { data, error } = await supabase
     .from('invitations')
-    .insert([
-      {
-        email,
-        token,
-        role,
-        created_by: user.id,
-        expires_at: expiresAt.toISOString(),
-      }
-    ])
+    .insert({
+      email,
+      token,
+      role,
+      created_by: user.id,
+      expires_at: expiresAt.toISOString(),
+    })
     .select()
     .single();
     
@@ -132,7 +130,13 @@ export const createInvitation = async (email: string, role: 'admin' | 'user' = '
     throw error;
   }
   
-  return data as Invitation;
+  // Generate invitation link that can be shared
+  const invitationLink = `${window.location.origin}/login?token=${token}`;
+  
+  return { 
+    invitation: data as Invitation,
+    invitationLink
+  };
 };
 
 export const getInvitations = async () => {
@@ -173,6 +177,7 @@ export const verifyInvitationToken = async (token: string) => {
     .single();
     
   if (error || !data) {
+    console.error('Error verifying invitation token:', error);
     return null;
   }
   
