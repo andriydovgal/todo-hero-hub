@@ -38,7 +38,8 @@ export type Invitation = {
 
 // User authentication functions
 export const signUp = async (email: string, password: string, token?: string) => {
-  return await supabase.auth.signUp({
+  // If token was provided, mark the invitation as used after signup
+  const signupResponse = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -49,6 +50,22 @@ export const signUp = async (email: string, password: string, token?: string) =>
       }
     }
   });
+
+  // If signup was successful and we have a token, mark the invitation as used
+  if (token && !signupResponse.error && signupResponse.data?.user) {
+    try {
+      // Update the invitation to mark it as used
+      await supabase
+        .from('invitations')
+        .update({ used: true })
+        .eq('token', token);
+    } catch (error) {
+      console.error('Error marking invitation as used:', error);
+      // We don't want to fail the signup if this update fails
+    }
+  }
+  
+  return signupResponse;
 };
 
 export const signIn = async (email: string, password: string) => {
@@ -171,19 +188,19 @@ export const deleteInvitation = async (id: string) => {
 
 export const verifyInvitationToken = async (token: string) => {
   try {
-    console.log(`Verifying invitation token: "${token}"`);
-    console.log(`Token length: ${token.length}`);
-    
     if (!token || token.trim() === '') {
       console.error('Empty token provided');
       return { error: 'not_found' };
     }
     
+    console.log(`Verifying invitation token: "${token}"`);
+    console.log(`Token length: ${token.length}`);
+    
     // First, let's check if there's any invitation with this token
     const { data: invitations, error } = await supabase
       .from('invitations')
       .select('*')
-      .eq('token', token.trim());
+      .eq('token', token);
       
     if (error) {
       console.error('Error querying invitations with token:', error);
@@ -318,4 +335,3 @@ export const getUserProfiles = async () => {
     .from('user_profiles')
     .select('*');
 };
-

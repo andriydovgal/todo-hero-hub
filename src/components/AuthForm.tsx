@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -70,8 +71,11 @@ export const AuthForm = () => {
         setIsVerifyingToken(true);
         setInvitationError(null);
         try {
-          console.log('Verifying token:', token);
-          const result = await verifyInvitationToken(token) as InvitationResult;
+          // Trim the token to remove any whitespace that might have been added
+          const cleanToken = token.trim();
+          console.log('Verifying cleaned token:', cleanToken);
+          
+          const result = await verifyInvitationToken(cleanToken) as InvitationResult;
           
           if ('error' in result) {
             console.log('Invitation verification error:', result.error);
@@ -99,7 +103,7 @@ export const AuthForm = () => {
             setInvitationToken(null);
           } else {
             console.log('Token verified successfully:', result);
-            setInvitationToken(token);
+            setInvitationToken(cleanToken);
             setInvitationEmail(result.email);
             setMode('set-password');
             loginForm.setValue('email', result.email);
