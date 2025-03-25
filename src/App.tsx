@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,10 @@ const App = () => {
             <Route 
               path="/profile" 
               element={authenticated ? <Profile /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="/settings" 
+              element={authenticated ? <Settings /> : <Navigate to="/login" />} 
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
