@@ -123,8 +123,17 @@ export const AuthForm = () => {
     setIsLoading(true);
     try {
       if (mode === 'login') {
-        const { error } = await signIn(data.email, data.password);
+        const { error, data: authData } = await signIn(data.email, data.password);
         if (error) throw error;
+        
+        // Check if this is a new user from an invitation who needs to set a password
+        // This would be determined by the auth metadata or a custom claim
+        if (authData?.user?.user_metadata?.requires_password_setup) {
+          // Force password setup mode
+          setMode('set-password');
+          toast.info('You need to set a secure password before continuing');
+          return;
+        }
         
         toast.success('Logged in successfully');
         navigate('/dashboard');
@@ -151,16 +160,30 @@ export const AuthForm = () => {
   const handlePasswordSubmit = async (data: PasswordFormValues) => {
     setIsLoading(true);
     try {
-      if (!invitationEmail || !invitationToken) {
-        throw new Error('Invitation information is missing');
+      if (!invitationEmail && !loginForm.getValues('email')) {
+        throw new Error('Email information is missing');
       }
 
-      const { error } = await signUp(invitationEmail, data.password, invitationToken);
-      if (error) throw error;
+      const email = invitationEmail || loginForm.getValues('email');
+
+      if (invitationToken) {
+        // New user from invitation
+        const { error } = await signUp(email, data.password, invitationToken);
+        if (error) throw error;
+        
+        toast.success('Account created successfully. Please sign in.');
+        setMode('login');
+        loginForm.setValue('email', email);
+      } else {
+        // Existing user setting up password after login
+        // Use update password functionality
+        const { error } = await updatePasswordAfterInvitation(data.password);
+        if (error) throw error;
+        
+        toast.success('Password updated successfully');
+        navigate('/dashboard');
+      }
       
-      toast.success('Account created successfully. Please sign in.');
-      setMode('login');
-      loginForm.setValue('email', invitationEmail);
       passwordForm.reset();
     } catch (error: any) {
       toast.error(error.message || 'An error occurred');
@@ -168,6 +191,9 @@ export const AuthForm = () => {
       setIsLoading(false);
     }
   };
+  
+  // If we're forcing password setup, don't allow the user to go back to login
+  const showBackToLoginButton = mode !== 'login' && (invitationToken || !loginForm.getValues('email'));
   
   return (
     <AnimatedContainer className="w-full max-w-md mx-auto">
@@ -184,7 +210,9 @@ export const AuthForm = () => {
                 ? 'Enter your credentials to sign in'
                 : mode === 'register'
                 ? 'Complete your registration'
-                : 'Create a secure password for your account'}
+                : invitationToken 
+                  ? 'Create a secure password for your account' 
+                  : 'You need to set a secure password before continuing'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -217,13 +245,13 @@ export const AuthForm = () => {
             
             {mode === 'set-password' ? (
               <form onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)} className="space-y-4">
-                {invitationEmail && (
+                {(invitationEmail || loginForm.getValues('email')) && (
                   <div className="space-y-2">
                     <Label htmlFor="email-display">Email</Label>
                     <Input
                       id="email-display"
                       type="email"
-                      value={invitationEmail}
+                      value={invitationEmail || loginForm.getValues('email')}
                       className="bg-white/50"
                       disabled
                     />
@@ -258,7 +286,7 @@ export const AuthForm = () => {
                   className="w-full" 
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Loading...' : 'Create Account'}
+                  {isLoading ? 'Loading...' : invitationToken ? 'Create Account' : 'Update Password'}
                 </Button>
               </form>
             ) : (
@@ -309,7 +337,7 @@ export const AuthForm = () => {
                 Don't have an account? Please ask for an invitation.
               </p>
             )}
-            {(mode === 'register' || mode === 'set-password') && invitationToken && (
+            {showBackToLoginButton && (
               <Button
                 variant="link"
                 className="pl-1.5 pr-0 h-auto"
@@ -329,6 +357,24 @@ export const AuthForm = () => {
       </GlassSection>
     </AnimatedContainer>
   );
+};
+
+// Function to update user password after invitation login
+const updatePasswordAfterInvitation = async (newPassword: string) => {
+  try {
+    // Use the supabase auth to update the user's password
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+      data: {
+        requires_password_setup: false, // Remove the flag once password is set
+      }
+    });
+    
+    return { error };
+  } catch (error) {
+    console.error('Error updating password:', error);
+    return { error };
+  }
 };
 
 export default AuthForm;

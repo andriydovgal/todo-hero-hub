@@ -44,17 +44,20 @@ export const signUp = async (email: string, password: string, token?: string) =>
     options: {
       emailRedirectTo: `${window.location.origin}/login`,
       data: {
-        invitation_token: token
+        invitation_token: token,
+        requires_password_setup: token ? true : false // Set flag for users created via invitation
       }
     }
   });
 };
 
 export const signIn = async (email: string, password: string) => {
-  return await supabase.auth.signInWithPassword({
+  const response = await supabase.auth.signInWithPassword({
     email,
     password,
   });
+  
+  return response;
 };
 
 export const signOut = async () => {
@@ -315,3 +318,4 @@ export const getUserProfiles = async () => {
     .from('user_profiles')
     .select('*');
 };
+
