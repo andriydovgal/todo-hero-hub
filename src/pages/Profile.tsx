@@ -1,19 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from '@/components/ui/form';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { getUserProfile, getCurrentUser } from '@/lib/supabase';
+import { getUserProfile } from '@/lib/supabase';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { User, Edit } from 'lucide-react';
+import AccountPreferences from '@/components/AccountPreferences';
 
 const profileFormSchema = z.object({
   email: z.string().email().optional(),
@@ -183,20 +181,8 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* Account preferences */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Preferences</CardTitle>
-              <CardDescription>
-                Manage your account preferences and settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Account preference settings will be implemented in a future update.
-              </p>
-            </CardContent>
-          </Card>
+          {/* Account Preferences */}
+          <AccountPreferences />
         </div>
       </div>
     </Layout>
