@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { GlassSection } from './ui-components';
 import { signIn, signUp, verifyInvitationToken, Invitation } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AnimatedContainer } from './ui-components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -60,13 +61,11 @@ export const AuthForm = () => {
   });
   
   useEffect(() => {
-    // Check for invitation token in URL
     const searchParams = new URLSearchParams(location.search);
     const token = searchParams.get('token');
     
     if (token) {
       console.log('Found token in URL:', token);
-      // Verify the token and get the associated email
       const verifyToken = async () => {
         setIsVerifyingToken(true);
         setInvitationError(null);
@@ -126,10 +125,7 @@ export const AuthForm = () => {
         const { error, data: authData } = await signIn(data.email, data.password);
         if (error) throw error;
         
-        // Check if this is a new user from an invitation who needs to set a password
-        // This would be determined by the auth metadata or a custom claim
         if (authData?.user?.user_metadata?.requires_password_setup) {
-          // Force password setup mode
           setMode('set-password');
           toast.info('You need to set a secure password before continuing');
           return;
@@ -138,7 +134,6 @@ export const AuthForm = () => {
         toast.success('Logged in successfully');
         navigate('/dashboard');
       } else if (mode === 'register') {
-        // Check if we have an invitation token
         if (invitationToken) {
           const { error } = await signUp(data.email, data.password, invitationToken);
           if (error) throw error;
@@ -167,7 +162,6 @@ export const AuthForm = () => {
       const email = invitationEmail || loginForm.getValues('email');
 
       if (invitationToken) {
-        // New user from invitation
         const { error } = await signUp(email, data.password, invitationToken);
         if (error) throw error;
         
@@ -175,8 +169,6 @@ export const AuthForm = () => {
         setMode('login');
         loginForm.setValue('email', email);
       } else {
-        // Existing user setting up password after login
-        // Use update password functionality
         const { error } = await updatePasswordAfterInvitation(data.password);
         if (error) throw error;
         
@@ -192,7 +184,6 @@ export const AuthForm = () => {
     }
   };
   
-  // If we're forcing password setup, don't allow the user to go back to login
   const showBackToLoginButton = mode !== 'login' && (invitationToken || !loginForm.getValues('email'));
   
   return (
@@ -359,14 +350,12 @@ export const AuthForm = () => {
   );
 };
 
-// Function to update user password after invitation login
 const updatePasswordAfterInvitation = async (newPassword: string) => {
   try {
-    // Use the supabase auth to update the user's password
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
       data: {
-        requires_password_setup: false, // Remove the flag once password is set
+        requires_password_setup: false,
       }
     });
     
