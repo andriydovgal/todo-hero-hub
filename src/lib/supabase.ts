@@ -282,10 +282,26 @@ const generateToken = () => {
 
 // Task CRUD operations
 export const getTasks = async () => {
-  return await supabase
-    .from('tasks')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const isUserAdmin = await isAdmin();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+  
+  // If the user is an admin, fetch all tasks, otherwise only fetch their own tasks
+  if (isUserAdmin) {
+    return await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+  } else {
+    return await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+  }
 };
 
 export const getTaskById = async (id: string) => {

@@ -5,6 +5,8 @@ import Layout from '@/components/Layout';
 import { AnimatedContainer } from '@/components/ui-components';
 import InvitationForm from '@/components/InvitationForm';
 import InvitationList from '@/components/InvitationList';
+import TaskList from '@/components/TaskList';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getUserRole } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -57,18 +59,31 @@ const Admin = () => {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Admin Dashboard</h1>
           <p className="text-muted-foreground">
-            Manage users and invitations
+            Manage users, invitations, and all tasks
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-1">
-            <InvitationForm />
-          </div>
-          <div className="md:col-span-2">
-            <InvitationList />
-          </div>
-        </div>
+        <Tabs defaultValue="invitations" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="invitations">User Management</TabsTrigger>
+            <TabsTrigger value="tasks">All Tasks</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="invitations" className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-1">
+                <InvitationForm />
+              </div>
+              <div className="md:col-span-2">
+                <InvitationList />
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="tasks" className="mt-4">
+            <TaskList />
+          </TabsContent>
+        </Tabs>
       </AnimatedContainer>
     </Layout>
   );

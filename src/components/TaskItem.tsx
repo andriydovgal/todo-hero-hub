@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Task } from '@/lib/supabase';
+import { Task, getUserRole } from '@/lib/supabase';
 import { StatusBadge, PriorityIndicator } from './ui-components';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -20,7 +20,8 @@ import {
   Calendar, 
   Pencil, 
   Trash2,
-  Clock
+  Clock,
+  UserIcon
 } from 'lucide-react';
 
 interface TaskItemProps {
@@ -28,15 +29,19 @@ interface TaskItemProps {
   onStatusChange: (id: string, status: Task['status']) => void;
   onDelete: (id: string) => void;
   onEdit: (task: Task) => void;
+  userEmail?: string;
+  isAdmin?: boolean;
 }
 
 const TaskItem: React.FC<TaskItemProps> = ({ 
   task, 
   onStatusChange,
   onDelete,
-  onEdit
+  onEdit,
+  userEmail,
+  isAdmin = false
 }) => {
-  const { id, title, description, status, due_date, priority, category } = task;
+  const { id, title, description, status, due_date, priority, category, user_id } = task;
   
   const getStatusIcon = () => {
     switch (status) {
@@ -143,6 +148,13 @@ const TaskItem: React.FC<TaskItemProps> = ({
                 <div className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
                   <Calendar className="h-3 w-3" />
                   {formatDueDate(due_date)}
+                </div>
+              )}
+              
+              {isAdmin && userEmail && (
+                <div className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  <UserIcon className="h-3 w-3" />
+                  {userEmail}
                 </div>
               )}
             </div>

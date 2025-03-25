@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { PlusIcon, Loader2, SearchIcon, CheckCircle2, CircleIcon, MoreHorizontal, X } from 'lucide-react';
-import { Task, TaskStatus, getTasks, updateTask, deleteTask } from '@/lib/supabase';
+import { Task, TaskStatus, getTasks, updateTask, deleteTask, getUserProfile, isAdmin } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -17,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import TaskForm from './TaskForm';
 import TaskItem from './TaskItem';
+import { supabase } from '@/integrations/supabase/client';
 
 const TaskList: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -25,6 +27,41 @@ const TaskList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [userEmails, setUserEmails] = useState<Record<string, string>>({});
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
+  
+  // Check if the current user is an admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const adminStatus = await isAdmin();
+        setIsUserAdmin(adminStatus);
+        
+        // If admin, fetch all user emails for displaying task owners
+        if (adminStatus) {
+          const { data: profiles, error } = await supabase
+            .from('user_profiles')
+            .select('id, email');
+            
+          if (error) {
+            console.error('Error fetching user profiles:', error);
+            return;
+          }
+          
+          const emailMap: Record<string, string> = {};
+          profiles?.forEach(profile => {
+            emailMap[profile.id] = profile.email;
+          });
+          
+          setUserEmails(emailMap);
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    };
+    
+    checkAdminStatus();
+  }, []);
   
   const fetchTasks = async () => {
     setIsLoading(true);
@@ -206,6 +243,8 @@ const TaskList: React.FC = () => {
                 onStatusChange={handleStatusChange}
                 onDelete={handleTaskDelete}
                 onEdit={handleEditTask}
+                userEmail={userEmails[task.user_id]}
+                isAdmin={isUserAdmin}
               />
             </AnimatedContainer>
           ))
