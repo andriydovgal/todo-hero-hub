@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { getCurrentUser } from '@/lib/supabase';
 import AccountPreferences from '@/components/AccountPreferences';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
+import { KeyRound } from 'lucide-react';
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,7 +71,12 @@ const Settings = () => {
                 <p className="text-sm text-muted-foreground">
                   Change your password to keep your account secure
                 </p>
-                <Button variant="outline">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setPasswordModalOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <KeyRound className="h-4 w-4" />
                   Change Password
                 </Button>
               </div>
@@ -89,6 +97,12 @@ const Settings = () => {
           <AccountPreferences />
         </div>
       </div>
+
+      {/* Password Change Modal */}
+      <ChangePasswordModal 
+        open={passwordModalOpen} 
+        onOpenChange={setPasswordModalOpen} 
+      />
     </Layout>
   );
 };
