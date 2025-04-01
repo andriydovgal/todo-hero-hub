@@ -1,11 +1,11 @@
-
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { AnimatedContainer } from '@/components/ui-components';
 import InvitationForm from '@/components/InvitationForm';
 import InvitationList from '@/components/InvitationList';
 import TaskList from '@/components/TaskList';
+import Users from '@/components/Users';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getUserRole } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -63,11 +63,18 @@ const Admin = () => {
           </p>
         </div>
         
-        <Tabs defaultValue="invitations" className="w-full">
+        <Tabs defaultValue="users" className="w-full">
           <TabsList className="mb-4">
-            <TabsTrigger value="invitations">User Management</TabsTrigger>
+          <TabsTrigger value="users">Users management</TabsTrigger>
+            <TabsTrigger value="invitations">Invitations</TabsTrigger>
             <TabsTrigger value="tasks">All Tasks</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="users" className="mt-4">
+            <div className="space-y-4">
+              <Users />
+            </div>
+          </TabsContent>
           
           <TabsContent value="invitations" className="mt-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -83,6 +90,7 @@ const Admin = () => {
           <TabsContent value="tasks" className="mt-4">
             <TaskList />
           </TabsContent>
+
         </Tabs>
       </AnimatedContainer>
     </Layout>
