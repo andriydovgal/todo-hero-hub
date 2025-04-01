@@ -23,6 +23,7 @@ export type UserProfile = {
   email: string;
   role: 'admin' | 'user';
   created_at: string;
+  updated_at: string;
 };
 
 export type Invitation = {
@@ -347,7 +348,43 @@ export const deleteTask = async (id: string) => {
 
 // For admin operations (getting all users, etc.)
 export const getUserProfiles = async () => {
-  return await supabase
+  const { data, error } = await supabase
     .from('user_profiles')
-    .select('*');
+    .select('id, email, role, created_at, updated_at')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as UserProfile[];
+};
+
+export const updateUserRole = async (userId: string, newRole: 'admin' | 'user') => {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .update({ 
+      role: newRole,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as UserProfile;
+};
+
+export const deleteUser = async (userId: string) => {
+  const { error } = await supabase
+    .from('user_profiles')
+    .delete()
+    .eq('id', userId);
+
+  if (error) {
+    throw error;
+  }
 };
