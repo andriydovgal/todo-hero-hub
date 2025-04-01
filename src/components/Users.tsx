@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil } from 'lucide-react';
+import { Pencil, Info } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,25 +24,53 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { STORAGE_KEYS, USER_ROLES, UserRole } from '@/lib/constants';
 
 const Users = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'user' | null>(null);
-  
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const getCurrentUserId = () => {
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    
+    if (token) {
+      try {
+        const { user } = JSON.parse(token);
+        return user?.id || null;
+      } catch (error) {
+        console.error('Error parsing auth token:', error);
+        return null;
+      }
+    }
+    return null;
+  };
+
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
       const data = await getUserProfiles();
       setUsers(data);
+      // Get current user ID from localStorage
+      const userId = getCurrentUserId();
+      if (userId) {
+        setCurrentUserId(userId);
+      }
     } catch (error) {
       toast.error('Failed to load users');
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -52,13 +80,13 @@ const Users = () => {
     setSelectedRole(user.role);
   };
 
-  const handleRoleChange = (newRole: 'admin' | 'user') => {
+  const handleRoleChange = (newRole: UserRole) => {
     setSelectedRole(newRole);
   };
 
   const handleSave = async () => {
     if (!editingUser || !selectedRole) return;
-    
+
     try {
       await updateUserRole(editingUser.id, selectedRole);
       await fetchUsers(); // Refresh the users list
@@ -69,7 +97,9 @@ const Users = () => {
       toast.error('Failed to update user role');
     }
   };
-  
+
+  const isCurrentUser = (userId: string) => userId === currentUserId;
+
   return (
     <Card>
       <CardHeader>
@@ -104,7 +134,7 @@ const Users = () => {
                   <TableRow key={user.id}>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Badge variant={user.role === 'admin' ? 'destructive' : 'default'}>
+                      <Badge variant={user.role === USER_ROLES.ADMIN ? 'destructive' : 'default'}>
                         {user.role}
                       </Badge>
                     </TableCell>
@@ -115,14 +145,25 @@ const Users = () => {
                       {format(new Date(user.updated_at), 'MMM dd, yyyy')}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEditUser(user)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleEditUser(user)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Edit user profile
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -140,7 +181,9 @@ const Users = () => {
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
-              Update user information. Some fields cannot be modified.
+              {isCurrentUser(editingUser?.id || '')
+                ? "Update your profile information. Role cannot be modified."
+                : "Update user information. Some fields cannot be modified."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -155,18 +198,33 @@ const Users = () => {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="role">Role</Label>
-              <Select
-                value={selectedRole || undefined}
-                onValueChange={handleRoleChange}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedRole || undefined}
+                  onValueChange={handleRoleChange}
+                  disabled={isCurrentUser(editingUser?.id || '')}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={USER_ROLES.ADMIN}>Admin</SelectItem>
+                    <SelectItem value={USER_ROLES.USER}>User</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isCurrentUser(editingUser?.id || '') && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        You cannot modify your own role
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
             </div>
             <div className="grid gap-2">
               <Label>Joined</Label>
@@ -192,9 +250,9 @@ const Users = () => {
             }}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSave}
-              disabled={!selectedRole || selectedRole === editingUser?.role}
+              disabled={!selectedRole || selectedRole === editingUser?.role || isCurrentUser(editingUser?.id || '')}
             >
               Save Changes
             </Button>
