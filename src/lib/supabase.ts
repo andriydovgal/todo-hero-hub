@@ -377,3 +377,14 @@ export const updateUserRole = async (userId: string, newRole: 'admin' | 'user') 
 
   return data as UserProfile;
 };
+
+export const deleteUser = async (userId: string) => {
+  const { error } = await supabase
+    .from('user_profiles')
+    .delete()
+    .eq('id', userId);
+
+  if (error) {
+    throw error;
+  }
+};
