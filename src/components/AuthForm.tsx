@@ -200,12 +200,14 @@ export const AuthForm = () => {
       
       if (error) throw error;
       
-      toast.success('Password reset instructions sent to your email');
+      // For security reasons, we'll show the same message regardless of whether the email exists
+      toast.success('If an account exists with this email, you will receive password reset instructions.');
       setMode('login');
       loginForm.reset();
     } catch (error) {
       const authError = error as AuthError;
-      toast.error(authError.message || 'Failed to send reset instructions');
+      // For security reasons, we'll show a generic error message
+      toast.error('Failed to process your request. Please try again later.');
     } finally {
       setIsLoading(false);
     }
