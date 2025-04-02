@@ -33,8 +33,13 @@ const passwordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email({ message: 'Please enter a valid email address' })
+});
+
 type LoginFormValues = z.infer<typeof loginSchema>;
 type PasswordFormValues = z.infer<typeof passwordSchema>;
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export const AuthForm = () => {
   const [mode, setMode] = useState<FormMode>('login');
@@ -59,6 +64,13 @@ export const AuthForm = () => {
     defaultValues: {
       password: '',
       confirmPassword: '',
+    },
+  });
+
+  const forgotPasswordForm = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: '',
     },
   });
 
@@ -191,20 +203,20 @@ export const AuthForm = () => {
     }
   };
 
-  const handleForgotPassword = async (email: string) => {
-    console.log('handleForgotPassword called with email:', email);
+  const handleForgotPassword = async (data: ForgotPasswordFormValues) => {
+    console.log('handleForgotPassword called with email:', data.email);
     setIsLoading(true);
     try {
       console.log('Calling resetPasswordForEmail with redirectTo:', env.getResetPasswordUrl());
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
         redirectTo: env.getResetPasswordUrl()
       });
 
       if (error) throw error;
-      
+
       toast.success('If an account exists with this email, you will receive password reset instructions.');
       setMode('login');
-      loginForm.reset();
+      forgotPasswordForm.reset();
     } catch (error) {
       toast.error('Failed to process your request. Please try again later.');
     } finally {
@@ -264,39 +276,29 @@ export const AuthForm = () => {
             )}
 
             {mode === 'forgot-password' ? (
-                <>
-                  <form onSubmit={loginForm.handleSubmit((data) => handleForgotPassword(data.email))}
-                        className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                          id="email"
-                          type="email"
-                          placeholder="name@example.com"
-                          className="bg-white/50"
-                          {...loginForm.register('email')}
-                      />
-                      {loginForm.formState.errors.email && (
-                          <p className="text-sm text-red-500">{loginForm.formState.errors.email.message}</p>
-                      )}
-                    </div>
-                    <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={isLoading}
-                    >
-                      {isLoading ? 'Sending...' : 'Send Reset Instructions'}
-                    </Button>
-                  </form>
-                  <Button
-                      type="button"
-                      className="w-full"
-                      disabled={isLoading}
-                      onClick={() => handleForgotPassword("inna.demidova@devcom.com")}
-                  >
-                    {isLoading ? 'Sending...' : 'Send Reset Instructions'}
-                  </Button>
-                </>
+              <form onSubmit={forgotPasswordForm.handleSubmit((email) => handleForgotPassword(email))}
+                className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    className="bg-white/50"
+                    {...forgotPasswordForm.register('email')}
+                  />
+                  {forgotPasswordForm.formState.errors.email && (
+                    <p className="text-sm text-red-500">{forgotPasswordForm.formState.errors.email.message}</p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Sending...' : 'Send Reset Instructions'}
+                </Button>
+              </form>
             ) : mode === 'set-password' ? (
               <form onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)} className="space-y-4">
                 {(invitationEmail || loginForm.getValues('email')) && (
