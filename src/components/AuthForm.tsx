@@ -192,28 +192,25 @@ export const AuthForm = () => {
   };
 
   const handleForgotPassword = async (email: string) => {
+    console.log('handleForgotPassword called with email:', email);
     setIsLoading(true);
     try {
+      console.log('Calling resetPasswordForEmail with redirectTo:', env.getResetPasswordUrl());
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: env.getResetPasswordUrl()
       });
 
       if (error) throw error;
-
-      // For security reasons, we'll show the same message regardless of whether the email exists
+      
       toast.success('If an account exists with this email, you will receive password reset instructions.');
       setMode('login');
       loginForm.reset();
     } catch (error) {
-      const authError = error as AuthError;
-      // For security reasons, we'll show a generic error message
       toast.error('Failed to process your request. Please try again later.');
     } finally {
       setIsLoading(false);
     }
   };
-
-  const showBackToLoginButton = mode !== 'login' && (invitationToken || !loginForm.getValues('email'));
 
   return (
     <AnimatedContainer className="w-full max-w-md mx-auto">
