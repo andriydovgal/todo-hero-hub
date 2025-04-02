@@ -264,28 +264,39 @@ export const AuthForm = () => {
             )}
 
             {mode === 'forgot-password' ? (
-              <form onSubmit={loginForm.handleSubmit((data) => handleForgotPassword(data.email))} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="name@example.com"
-                    className="bg-white/50"
-                    {...loginForm.register('email')}
-                  />
-                  {loginForm.formState.errors.email && (
-                    <p className="text-sm text-red-500">{loginForm.formState.errors.email.message}</p>
-                  )}
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Sending...' : 'Send Reset Instructions'}
-                </Button>
-              </form>
+                <>
+                  <form onSubmit={loginForm.handleSubmit((data) => handleForgotPassword(data.email))}
+                        className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                          id="email"
+                          type="email"
+                          placeholder="name@example.com"
+                          className="bg-white/50"
+                          {...loginForm.register('email')}
+                      />
+                      {loginForm.formState.errors.email && (
+                          <p className="text-sm text-red-500">{loginForm.formState.errors.email.message}</p>
+                      )}
+                    </div>
+                    <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={isLoading}
+                    >
+                      {isLoading ? 'Sending...' : 'Send Reset Instructions'}
+                    </Button>
+                  </form>
+                  <Button
+                      type="button"
+                      className="w-full"
+                      disabled={isLoading}
+                      onClick={() => handleForgotPassword("inna.demidova@devcom.com")}
+                  >
+                    {isLoading ? 'Sending...' : 'Send Reset Instructions'}
+                  </Button>
+                </>
             ) : mode === 'set-password' ? (
               <form onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)} className="space-y-4">
                 {(invitationEmail || loginForm.getValues('email')) && (
