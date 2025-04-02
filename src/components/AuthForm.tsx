@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,8 +14,10 @@ import { toast } from 'sonner';
 import { AnimatedContainer } from './ui-components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InfoIcon } from 'lucide-react';
+import { AuthError } from '@supabase/supabase-js';
+import { env } from '@/config/env';
 
-type FormMode = 'login' | 'register' | 'set-password';
+type FormMode = 'login' | 'register' | 'set-password' | 'forgot-password';
 type InvitationResult = Invitation | { error: string };
 
 const loginSchema = z.object({
@@ -149,8 +150,9 @@ export const AuthForm = () => {
           toast.error('Registration is only available via invitation');
         }
       }
-    } catch (error: any) {
-      toast.error(error.message || 'An error occurred');
+    } catch (error) {
+      const authError = error as AuthError;
+      toast.error(authError.message || 'An error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -181,8 +183,31 @@ export const AuthForm = () => {
       }
       
       passwordForm.reset();
-    } catch (error: any) {
-      toast.error(error.message || 'An error occurred');
+    } catch (error) {
+      const authError = error as AuthError;
+      toast.error(authError.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (email: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: env.getResetPasswordUrl()
+      });
+      
+      if (error) throw error;
+      
+      // For security reasons, we'll show the same message regardless of whether the email exists
+      toast.success('If an account exists with this email, you will receive password reset instructions.');
+      setMode('login');
+      loginForm.reset();
+    } catch (error) {
+      const authError = error as AuthError;
+      // For security reasons, we'll show a generic error message
+      toast.error('Failed to process your request. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -198,6 +223,7 @@ export const AuthForm = () => {
             <CardTitle className="text-2xl font-medium">
               {mode === 'login' ? 'Welcome back' : 
                mode === 'register' ? 'Create an account' : 
+               mode === 'forgot-password' ? 'Reset Password' :
                'Set your password'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
@@ -205,6 +231,8 @@ export const AuthForm = () => {
                 ? 'Enter your credentials to sign in'
                 : mode === 'register'
                 ? 'Complete your registration'
+                : mode === 'forgot-password'
+                ? 'Enter your email to receive reset instructions'
                 : invitationToken 
                   ? 'Create a secure password for your account' 
                   : 'You need to set a secure password before continuing'}
@@ -238,7 +266,30 @@ export const AuthForm = () => {
               </Alert>
             )}
             
-            {mode === 'set-password' ? (
+            {mode === 'forgot-password' ? (
+              <form onSubmit={loginForm.handleSubmit((data) => handleForgotPassword(data.email))} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    className="bg-white/50"
+                    {...loginForm.register('email')}
+                  />
+                  {loginForm.formState.errors.email && (
+                    <p className="text-sm text-red-500">{loginForm.formState.errors.email.message}</p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Sending...' : 'Send Reset Instructions'}
+                </Button>
+              </form>
+            ) : mode === 'set-password' ? (
               <form onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)} className="space-y-4">
                 {(invitationEmail || loginForm.getValues('email')) && (
                   <div className="space-y-2">
@@ -328,9 +379,18 @@ export const AuthForm = () => {
           </CardContent>
           <CardFooter className="flex flex-col">
             {mode === 'login' && (
-              <p className="text-sm text-muted-foreground text-center">
-                Don't have an account? Please ask for an invitation.
-              </p>
+              <>
+                <p className="text-sm text-muted-foreground text-center">
+                  Don't have an account? Please ask for an invitation.
+                </p>
+                <Button
+                  variant="link"
+                  className="pl-1.5 pr-0 h-auto"
+                  onClick={() => setMode('forgot-password')}
+                >
+                  Forgot your password?
+                </Button>
+              </>
             )}
             {showBackToLoginButton && (
               <Button
@@ -342,6 +402,18 @@ export const AuthForm = () => {
                   setInvitationEmail(null);
                   loginForm.reset();
                   passwordForm.reset();
+                }}
+              >
+                Back to login
+              </Button>
+            )}
+            {mode === 'forgot-password' && (
+              <Button
+                variant="link"
+                className="pl-1.5 pr-0 h-auto"
+                onClick={() => {
+                  setMode('login');
+                  loginForm.reset();
                 }}
               >
                 Back to login
