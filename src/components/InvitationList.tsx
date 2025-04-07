@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { getInvitations, deleteInvitation, Invitation } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Tooltip,
   TooltipContent,
@@ -29,32 +28,20 @@ import {
 } from "@/components/ui/tooltip";
 
 const InvitationList = () => {
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [invitationToDelete, setInvitationToDelete] = useState<string | null>(null);
   const [selectedInvitationLink, setSelectedInvitationLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const queryClient = useQueryClient();
   
-  const fetchInvitations = async () => {
-    setIsLoading(true);
-    try {
-      const data = await getInvitations();
-      setInvitations(data);
-    } catch (error) {
-      toast.error('Failed to load invitations');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchInvitations();
-  }, []);
+  const { data: invitations = [], isLoading } = useQuery({
+    queryKey: ['invitations'],
+    queryFn: getInvitations,
+  });
   
   const handleDeleteInvitation = async (id: string) => {
     try {
       await deleteInvitation(id);
-      setInvitations(invitations.filter(inv => inv.id !== id));
+      queryClient.invalidateQueries({ queryKey: ['invitations'] });
       toast.success('Invitation deleted');
     } catch (error) {
       toast.error('Failed to delete invitation');
