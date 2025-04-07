@@ -5,12 +5,13 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from 'sonner';
 import { createInvitation, sendInvitationEmail } from '@/lib/supabase';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InfoIcon, Copy, CheckIcon } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 const invitationSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -19,11 +20,19 @@ const invitationSchema = z.object({
 
 type InvitationFormValues = z.infer<typeof invitationSchema>;
 
+interface EmailError {
+  message: string;
+}
+
+interface InvitationError {
+  code?: string;
+  message: string;
+}
+
 const InvitationForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
   const [invitationLink, setInvitationLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const queryClient = useQueryClient();
   
   const {
     register,
@@ -42,38 +51,37 @@ const InvitationForm = () => {
   
   const watchRole = watch('role');
   
-  const onSubmit = async (data: InvitationFormValues) => {
-    setIsLoading(true);
-    
-    try {
+  const createInvitationMutation = useMutation({
+    mutationFn: async (data: InvitationFormValues) => {
       const result = await createInvitation(data.email, data.role);
-      
-      // Send invitation email
-      setIsSendingEmail(true);
+      return result;
+    },
+    onSuccess: async (result, data) => {
       try {
-        console.log(`Sending invitation email to ${data.email} with link ${result.invitationLink}`);
-        const emailResult = await sendInvitationEmail(data.email, result.invitationLink, data.role);
-        console.log("Email sending response:", emailResult);
+        await sendInvitationEmail(data.email, result.invitationLink, data.role);
         toast.success(`Invitation sent to ${data.email}`);
-      } catch (emailError: any) {
+      } catch (error) {
+        const emailError = error as EmailError;
         console.error("Error sending invitation email:", emailError);
         toast.error(`Invitation created but email failed to send: ${emailError.message}`);
-      } finally {
-        setIsSendingEmail(false);
       }
-      
       setInvitationLink(result.invitationLink);
       reset();
-    } catch (error: any) {
-      console.error("Error creating invitation:", error);
-      if (error.code === '23505') {
+      queryClient.invalidateQueries({ queryKey: ['invitations'] });
+    },
+    onError: (error) => {
+      const invitationError = error as InvitationError;
+      console.error("Error creating invitation:", invitationError);
+      if (invitationError.code === '23505') {
         toast.error('This email has already been invited');
       } else {
-        toast.error(error.message || 'Failed to send invitation');
+        toast.error(invitationError.message || 'Failed to send invitation');
       }
-    } finally {
-      setIsLoading(false);
-    }
+    },
+  });
+  
+  const onSubmit = async (data: InvitationFormValues) => {
+    createInvitationMutation.mutate(data);
   };
   
   const copyToClipboard = () => {
@@ -158,12 +166,12 @@ const InvitationForm = () => {
             )}
           </div>
           
-          <Button type="submit" className="w-full" disabled={isLoading || isSendingEmail}>
-            {isLoading || isSendingEmail ? (
-              isSendingEmail ? 'Sending email...' : 'Creating invitation...'
-            ) : (
-              'Send invitation'
-            )}
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={createInvitationMutation.isPending}
+          >
+            {createInvitationMutation.isPending ? 'Creating invitation...' : 'Send invitation'}
           </Button>
         </form>
       </CardContent>
